@@ -25,18 +25,22 @@
                      热榜 / 新闻榜：新上榜的进收件箱（给 AI 筛）；notify_filter
                       命中的才弹通知（"*" = 全部弹）。
                       toutiao 与 hackernews 免浏览器；其余平台需要主浏览器
-                      （Chrome）与 opencli 扩展在链，没开就自动跳过
+                      （Chrome）与 opencli 扩展在链；没连上会自动拉起桥窗口
+                      （watches.json 顶层 "bridge_window" 配 label）重试一次，
+                      仍不行才跳过
   web                {"url": "https://..."}          网页变化（快照 diff，
                       新增行进收件箱）
 
 依赖：gh（已登录）用于 GitHub 源；opencli 用于热榜源（头条免浏览器；
-微博 / B站 需要 Chrome + 扩展在链）；web 源走系统 curl，无其他依赖。
+微博 / B站 等浏览器源断了会自动 kickstart 桥窗口重试一次，label 在
+watches.json 顶层 "bridge_window" 配）；web 源走系统 curl，无其他依赖。
 """
 import difflib
 import glob as globmod
 import hashlib
 import html as htmllib
 import json
+import os
 import pathlib
 import re
 import shutil
@@ -168,6 +172,41 @@ def fetch_gh_new(w):
     return items
 
 
+_WINDOW_KICKED = False  # 每轮采集最多拉一次桥窗口，四个源不用各等一遍
+
+
+def _bridge_window_label():
+    """浏览器桥窗口的 launchd label——在 watches.json 顶层配 "bridge_window"。"""
+    try:
+        data = json.loads(WATCHES.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    return str(data.get("bridge_window") or "").strip()
+
+
+def _ensure_browser_bridge(err_text):
+    """浏览器桥没连上时，把桥窗口（带 opencli 扩展的那个）拉起来再重试。
+    每轮最多拉一次；返回 True 表示已尽力拉起，调用方可重试取数。"""
+    global _WINDOW_KICKED
+    if "BROWSER_CONNECT" not in err_text:
+        return False
+    label = _bridge_window_label()
+    if not label:
+        return False
+    if _WINDOW_KICKED:
+        return True
+    _WINDOW_KICKED = True
+    if VERBOSE:
+        print(f"[哨兵] 浏览器桥未连：拉起 {label}，30 秒后重试")
+    try:
+        subprocess.run(["launchctl", "kickstart", f"gui/{os.getuid()}/{label}"],
+                       capture_output=True, timeout=20)
+    except Exception:
+        return False
+    time.sleep(30)  # 等窗口起来 + 扩展连上桥
+    return True
+
+
 def fetch_hotlist(w):
     platform = w.get("platform", "")
     cmd = HOT_CMDS.get(platform)
@@ -175,6 +214,8 @@ def fetch_hotlist(w):
         return None
     top = int(w.get("top", 10))
     r = run([_find_opencli(), *cmd, "-f", "json"])
+    if r.returncode != 0 and _ensure_browser_bridge((r.stderr or "") + (r.stdout or "")):
+        r = run([_find_opencli(), *cmd, "-f", "json"])
     if r.returncode != 0:
         if VERBOSE:
             err = (r.stderr or r.stdout or "").strip().splitlines()
@@ -190,7 +231,8 @@ def fetch_hotlist(w):
         return None
     items, snap = [], []
     for entry in data[:top]:
-        title = str(entry.get("title") or entry.get("name") or "").strip()
+        title = str(entry.get("title") or entry.get("name")
+                    or entry.get("word") or "").strip()
         if not title:
             continue
         rank = entry.get("rank", "?")

@@ -5,3 +5,4 @@ inbox.jsonl
 archive.jsonl
 snapshots/
 sentinel.log
+watches.json

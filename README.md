@@ -61,6 +61,11 @@ Linux：引擎全兼容，定时用 cron 替 launchd（安装脚本会提示那�
 `bilibili`（B站）、`zhihu`（知乎）、`36kr`（36氪）——国内与全球常见信息源都有。
 源没装好或浏览器没开时**自动跳过**，不报错、不折腾。
 
+浏览器类源（微博 / B站 / 知乎 / 36氪）依赖本机 Chrome 与 opencli 扩展在链。
+取数时若发现桥没连上，夜诵会自动 `launchctl kickstart` 你在 `watches.json`
+顶层 `"bridge_window"` 配的窗口 label，等 30 秒再重试一次；没配就照常跳过。
+例：`"bridge_window": "com.you.browser-window"`。
+
 热榜类每条可加 `"notify_filter"`（关键词数组，"*" = 全部弹窗）：命中的才弹通知，
 全部新上榜的都会进收件箱给 AI 读——**通知管"吵不吵你"，收件箱管"AI 全知道"**。
 
@@ -99,7 +104,7 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 ## 已知限制
 
 - 定时托管目前是 macOS（launchd）；Linux 用 cron
-- 部分热榜源需要本机 Chrome（或 Chromium）开着、且 opencli 扩展在链
+- 部分热榜源需要本机 Chrome（或 Chromium）开着、且 opencli 扩展在链；桥窗口的 label 配在 `watches.json` 的 `bridge_window`（断了会自动拉起重试）
 - 网页源是普通访问：纯 JS 渲染的页面可能抓不全
 
 ## License
