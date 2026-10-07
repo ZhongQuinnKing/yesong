@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+state.json
+inbox.jsonl
+archive.jsonl
+snapshots/
+sentinel.log

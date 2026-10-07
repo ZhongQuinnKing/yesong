@@ -1,0 +1,34 @@
+{
+  "watches": [
+    {
+      "name": "示例·某仓库新 Issue",
+      "type": "gh_repo_issues",
+      "repo": "owner/repo"
+    },
+    {
+      "name": "示例·Hacker News",
+      "type": "hotlist",
+      "platform": "hackernews",
+      "top": 15,
+      "notify_filter": ["AI", "LLM"]
+    },
+    {
+      "name": "示例·微博热搜",
+      "type": "hotlist",
+      "platform": "weibo",
+      "top": 10,
+      "notify_filter": ["音乐"]
+    },
+    {
+      "name": "示例·新风口雷达",
+      "type": "gh_new",
+      "days": 7,
+      "min_stars": 300
+    },
+    {
+      "name": "示例·盯一个网页",
+      "type": "web",
+      "url": "https://example.com/news"
+    }
+  ]
+}
