@@ -101,8 +101,9 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 
 - [采诗](https://github.com/ZhongQuinnKing/caishi) —— 中文互联网能力包：
   让 AI 直连 33+ 个中文平台（抖音 / B站 / 小红书 / 微博 / 知乎 / 公众号…）
-- [拾级](https://github.com/ZhongQuinnKing/shiji) —— 从校园到工位的军师：
-  装进 AI 助手的大学生成长顾问（简历 / 论文 / 考研 / 求职 / 职场全周期）
+- [拾级](https://github.com/ZhongQuinnKing/shiji) —— 从高三到工位的军师：
+  装进 AI 助手的成长顾问，151 篇覆盖高考志愿 / 大学 / 考研 / 考公 /
+  求职 / 职场 / 论文 / 留学等十二条线
 
 ## 纪律
 
