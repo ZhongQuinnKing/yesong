@@ -92,6 +92,7 @@ if [ "$NO_HOOK" = "0" ] && [ -d "$HOME/.claude" ]; then
     y|Y|yes|YES)
       mkdir -p "$HOME/.claude/hooks"
       cp "$HERE/hooks/sentinel-inbox.mjs" "$HOME/.claude/hooks/sentinel-inbox.mjs"
+      chmod +x "$HOME/.claude/hooks/sentinel-inbox.mjs"   # 裸路径执行必需——无执行位会静默失效
       node - "$HOME/.claude/settings.json" "$HOME/.claude/hooks/sentinel-inbox.mjs" <<'NODEEOF'
 const fs = require('fs');
 const [, , settingsPath, hookPath] = process.argv;
