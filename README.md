@@ -117,6 +117,11 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 - 部分热榜源需要本机 Chrome（或 Chromium）开着、且 opencli 扩展在链；桥窗口的 label 配在 `watches.json` 的 `bridge_window`（断了会自动拉起重试）
 - 网页源是普通访问：纯 JS 渲染的页面可能抓不全
 
+## 收录
+
+2026 年 10 月起，收录于 [chinese-independent-developer](https://github.com/1c7/chinese-independent-developer)
+（国内独立开发者项目清单，6 万+ 星）程序员版。
+
 ## License
 
 MIT
