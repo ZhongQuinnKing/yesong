@@ -1,0 +1,13 @@
+{
+  "win_h": 48,
+  "big_hi": 0.35,
+  "big_lo": 0.22,
+  "disagree": 0.85,
+  "digest_at": "08:00",
+  "weights": {
+    "official": 1.0,
+    "media": 0.7,
+    "personal": 0.4
+  },
+  "source_tier": {}
+}

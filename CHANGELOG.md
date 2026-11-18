@@ -1,5 +1,39 @@
 # 变更记录
 
+## v2.1.0（2026-11-18）
+
+### 新增：品类雷达（21:00 档）
+
+每天 21:00 后的第一轮采集顺带跑一次品类雷达，扫 7 个公开榜单源：GitHub Search、GitHub Trending、GitHub Topics、Hacker News、Product Hunt、Hugging Face、npm。打分由星档、新鲜度、品类命中、跨源四路相加，再经过创建 90 天、词条实证、分数线的推送闸，最后逐条 `gh api` 真值回填，404 剔除。产物落 `radar/daily` 与 `radar/raw`。当日只跑一次，成功才记当日，失败下一档补跑。
+
+词表 17 条写在 `radar_run.py` 顶部。PyPI、Reddit、Gitee 未接或不通，健康表如实标。`gh` 是硬依赖。
+
+### 新增：命令行
+
+`python3 sentinel.py --radar` 立即实拉一次雷达；`python3 sentinel.py --version` 打印版本号。
+
+### 修复：v2.0.0 装后无法启动
+
+v2.0.0 的合并单文件把 `if __name__ == "__main__"` 放在内联 v2 之前，入口执行到 `main()` 时 `v2` 还没定义，任何从仓库新装的人首次运行都会报 NameError。install.sh 的首次运行带容错，把这个失败吞掉了，日志里只剩同样的错。v2.1.0 改回模块三件套：`sentinel.py`（入口）、`v2.py`（事件管线）、`radar_run.py`（品类雷达）。入口直接 `import v2`，安装脚本三件都复制，首次运行失败也不再静默。
+
+从 v2.0.0 升级：重跑 `bash install.sh` 即可，watches.json 会保留。
+
+### 改进：通知弹窗自动收口
+
+弹窗从“不点不消失”改成 120 秒无人点自动收口。11-15 实测原逻辑会挂死 37 分钟占屏，osascript 进程一直不退。
+
+### 改进：opencli 查找
+
+launchd 的 PATH 摸不到 nvm 装的 opencli 时，查找顺序补上 `~/.local/node/bin/opencli`。
+
+### 安装
+
+install.sh 补复制 `v2.py` 与 `radar_run.py`；macOS plist 补 21:00 的 StartCalendarInterval；Linux 提示改为两行 cron（六小时一轮与 21:00 雷达）。launchd 的 PATH 补 `/opt/homebrew/bin` 与 `~/.local/node/bin`。
+
+### 不变
+
+零模型，纯标准库，同一输入重跑逐位一致。采集五源、收件箱、归档、6 小时一轮与开机即跑、SessionStart 钩子原样在。
+
 ## v2.0.0（2026-10-18）
 
 v1 到 v2 不是补丁，是加了一层脑子。采集照旧，采集之后多了一条事件管线：把新东西合并成事件，判热度，出日报。逐项差异如下。
@@ -25,7 +59,7 @@ v1 只做两件事：采集、进收件箱。收件箱里一堆相似条目你�
 
 ### 新增：配置层
 
-`cluster.json` 可调六项：`win_h`（聚类窗口小时，默认 48）、`big_hi`（默认 0.35）、`big_lo`（默认 0.22）、`disagree`（默认 0.85）、`digest_at`（默认 08:00）、`weights`（official 1.0、media 0.7、personal 0.4）。缺文件即用默认，坏文件不炸。
+`cluster.json` 可调七项：`win_h`（聚类窗口小时，默认 48）、`big_hi`（默认 0.35）、`big_lo`（默认 0.22）、`disagree`（默认 0.85）、`digest_at`（默认 08:00）、`weights`（official 1.0、media 0.7、personal 0.4）、`source_tier`（按源类型覆写权重档，默认空）。缺文件即用默认，坏文件不炸。
 
 ### 修改：去重键
 

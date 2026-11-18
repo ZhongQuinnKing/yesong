@@ -8,7 +8,8 @@
 
 | 类型 | 字段 | 说明 |
 |---|---|---|
-| gh_new | days、min_stars | 新风口雷达：近 N 天创建且星数不低于下限的新仓 |
+| gh_issue_comments | repo、number | 某 Issue 下的新评论（repo 形如 作者/仓名） |
+| gh_new | days、min_stars | 新风口雷达：近 N 天创建且星数不低于下限的新仓（和 21:00 的品类雷达不是一回事） |
 | gh_repo_issues | repo | 仓库新 Issue 与 PR（形如 作者/仓名） |
 | hotlist | platform、top、notify_filter | 热榜：toutiao、weibo、bilibili、zhihu、36kr、hackernews；notify_filter 命中的才弹通知，「*」全弹 |
 | web | url | 网页变化：快照 diff，新增行进收件箱 |
@@ -19,7 +20,7 @@
 
 ## cluster.json：管线怎么判
 
-六项，全部可缺，缺了用默认：
+七项，全部可缺，缺了用默认。样例见 `cluster.example.json`，复制成 `cluster.json` 即用：
 
 | 键 | 默认 | 作用 |
 |---|---|---|
@@ -29,8 +30,33 @@
 | disagree | 0.85 | 分歧线：两判据归一化差超此值进待复核栏 |
 | digest_at | 08:00 | 日报出报时刻 |
 | weights | official 1.0、media 0.7、personal 0.4 | 判据 A 的来源权重 |
+| source_tier | {} | 按源类型覆写权重档，形如 {"gh_new": "media"} |
+
+可复制的默认配置：
+
+```json
+{
+  "win_h": 48,
+  "big_hi": 0.35,
+  "big_lo": 0.22,
+  "disagree": 0.85,
+  "digest_at": "08:00",
+  "weights": {"official": 1.0, "media": 0.7, "personal": 0.4},
+  "source_tier": {}
+}
+```
 
 阈值怎么来的，一句话：big_lo 0.22 与 disagree 0.85 是 25 组人工标注标定的，不是拍的。0.22 到 0.25 区间只有一组「顺序调换型同实体」正例（苹果华为合作新闻的两种写法，相似度 0.235），下调让实体签名救回它；负例进带只列不判。disagree 原 0.6 时，39 个簇落 45 条分数分歧，其中 31 条 gap 恒为 0.8，形态是单源官方新条目判据 A 满分、判据 B 只有印证底分，每条新条目都进待复核栏，栏失去甄别意义，0.85 卡在这个固定形态之上。
+
+## 品类雷达（v2.1）
+
+每天 21:00 一档：21:00 后的第一轮采集顺带跑，当日只跑一次，成功才记当日，失败下一档补跑。没有独立配置文件，时刻与词表都写在代码里：
+
+- 时刻：`RADAR_AT = "21:00"`，在 `v2.py` 顶部。
+- 词表：17 条，在 `radar_run.py` 顶部的 `TERM_SAMPLE`；改词表等于改雷达口径。
+- 源：GitHub Search、GitHub Trending、GitHub Topics、Hacker News、Product Hunt、Hugging Face、npm，共 7 个。PyPI、Reddit、Gitee 未接或不通，健康表如实标。
+- 产物：`radar/daily/YYYY-MM-DD.md` 与 `radar/raw/YYYY-MM-DD/`。
+- 依赖：`gh` 已登录（硬依赖，搜索与真值回填都走它），其余走公开接口与普通网页访问。
 
 ## CLI 一览
 
@@ -41,4 +67,6 @@
 | python3 sentinel.py --report | 先采一轮，出桌面晨报并清理 7 天前旧档 |
 | python3 sentinel.py health | 打印源健康表 |
 | python3 sentinel.py digest | 出当日日报 |
+| python3 sentinel.py --radar | 立即跑一次品类雷达（实拉） |
 | python3 sentinel.py cluster --recompute | 清库重算事件池（热榜走 snapshots，其余走归档加收件箱） |
+| python3 sentinel.py --version | 打印版本号 |

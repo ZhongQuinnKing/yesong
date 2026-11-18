@@ -6,3 +6,8 @@ archive.jsonl
 snapshots/
 sentinel.log
 watches.json
+events.db
+daily/
+radar/
+cluster.json
+.DS_Store

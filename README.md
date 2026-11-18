@@ -6,28 +6,35 @@
 
 终端一关，你的 AI 就睡了——世界不会。夜诵是一个离线信息哨兵：按你列的清单，
 它定期去看那些你关心的地方（热搜、科技榜、GitHub 动态、任意网页变化），把新东西
-攒进一个收件箱；你的 AI 下一次上线时自动读完，该办的办、该报的报。
+攒进一个收件箱；你的 AI 下一次上线时自动读完，该办的办、该报的报。另外，它每天
+21:00 会按内置词表扫一遍公开榜单，找同品类的新项目，出一份雷达日报。
 
 v2.0 在采集之后加了一条事件管线：相似条目合并成事件，判热度，出日报。收件箱里
 一百条消息，日报里也许只有二十行——重复的合并了，冷门的沉底了。
 
-- **只读**，低频（6 小时一轮），只盯你列出的源。
+v2.1 加了每天 21:00 的品类雷达：按内置词表扫 7 个公开榜单源（GitHub Search、
+GitHub Trending、GitHub Topics、Hacker News、Product Hunt、Hugging Face、npm），
+打分后过推送闸，产物落 radar/daily。它和 watches.json 里的 gh_new“新风口雷达”
+不是一回事：那个按星数与创建时间筛新仓，这个按词表扫公开榜单，两个名字别混。
+
+- **只读**，低频（6 小时一轮，另有每天 21:00 一轮品类雷达）。采集只盯你列出的源；品类雷达按内置词表扫公开榜单。
 - **不调用任何大模型**——采集与管线全程零 AI 成本、零 token。
 - **安静**：热榜类默认不吵你，只有你设的关键词命中才弹通知。
 
 > **English TL;DR** — A read-only, offline information sentinel for AI agent users
 > on macOS. It polls the sources you list (hot lists, GitHub, webpages) on a timer,
 > drops new items into an inbox that your AI agent reads on its next session, then
-> merges similar items into events and writes a daily digest. No AI calls, no token
-> cost.
+> merges similar items into events and writes a daily digest. A daily 21:00 category
+> radar also scans public listings (GitHub, Hacker News, Product Hunt, Hugging Face,
+> npm). No AI calls, no token cost.
 
 ## 它是什么、不是什么
 
-是：机械眼加一层机械筛。采集、存档、合并、排热度、出日报。它不懂语义、不做判断，
-读和筛是你 AI 的活（这正是不烧钱的原因）。管线里的双打分与聚类都是确定性算法，
-同一输入重跑逐位一致。
+是：机械眼加一层机械筛。采集、存档、合并、排热度、出日报，外加每天一轮品类雷达。
+它不懂语义、不做判断，读和筛是你 AI 的活（这正是不烧钱的原因）。管线里的双打分与
+聚类都是确定性算法，同一输入重跑逐位一致。
 
-不是：爬虫（只读、低频、只盯你列的源）；也不是"盯 AI 干活"的那种工具——
+不是：爬虫（只读、低频；采集只读你列的源，雷达只读公开榜单）；也不是"盯 AI 干活"的那种工具——
 那种盯的是 agent 有没有卡住、要不要审批；夜诵盯的是 agent 睡着时外面的世界，
 正好补上另一半。不做任何写操作。
 
@@ -40,7 +47,9 @@ v2.0 在采集之后加了一条事件管线：相似条目合并成事件，判
    命中的才弹 macOS 通知。
 3. 每天 08:00 出日报 daily/YYYY-MM-DD.md，四段：今日事件榜、新进展、分歧件栏、
    源健康表摘要。事件热度按来源权重、位次、时间衰减（24 小时半衰）排。
-4. 你的 AI 每次开工自动读完收件箱（靠一个 SessionStart 钩子）；读过的条目转入
+4. 每天 21:00 后的第一轮采集顺带跑一次品类雷达，当日只跑一次；关机期间不跑，
+   开机后若当日已过 21:00 会补一次，整日关机则当天跳过。
+5. 你的 AI 每次开工自动读完收件箱（靠一个 SessionStart 钩子）；读过的条目转入
    归档，7 天后自动清理——看过的不占地方。
 
 ## 安装（macOS）
@@ -51,15 +60,18 @@ cd yesong
 bash install.sh
 ```
 
-install.sh 会把哨兵装进定时任务（每 6 小时一轮加开机即跑），装好先静默建基线，
-下一轮才开始报新东西。AI 上线读箱靠 hooks/ 里的会话钩子，装时一并落位。
+install.sh 会把三个引擎文件（sentinel.py、v2.py、radar_run.py）装进
+~/.claude/tools/sentinel/，再把定时任务装上：开机即跑、每 6 小时一轮、每天
+21:00 一轮品类雷达。装好先静默建基线，下一轮才开始报新东西。装完可以用
+`python3 sentinel.py --version` 核对版本。AI 上线读箱靠 hooks/ 里的会话钩子，
+装时一并落位。
 
-依赖都是"有则用、没有自动跳过"的：
-- `gh`（GitHub 类源）：`brew install gh && gh auth login`
-- `opencli`（热榜类源）：[安装说明](https://github.com/jackwener/OpenCLI)
-- 系统 `curl`（网页源），无需另装
+依赖分两档：
+- `gh`（已登录）：GitHub 类采集源与品类雷达都要用；雷达是硬依赖，搜索与真值回填都走它。装法：`brew install gh && gh auth login`。
+- `opencli`（热榜类源）：没有就跳过对应平台。[安装说明](https://github.com/jackwener/OpenCLI)
+- 系统 `curl`（网页源），无需另装。
 
-Linux：引擎全兼容，定时用 cron 替 launchd（安装脚本会提示那一行）。
+Linux：引擎全兼容，定时用 cron 替 launchd（安装脚本会提示两行：六小时一轮与每天 21:00 雷达）。
 
 ## 能盯什么（watches.json 的五种源）
 
@@ -75,6 +87,9 @@ Linux：引擎全兼容，定时用 cron 替 launchd（安装脚本会提示那�
 `bilibili`（B站）、`zhihu`（知乎）、`36kr`（36氪）——国内与全球常见信息源都有。
 源没装好或浏览器没开时自动跳过，不报错、不折腾。
 
+注意：表里的 `gh_new` 是“新风口雷达”（按星数与创建时间筛新仓），和每天 21:00
+的“品类雷达”（按词表扫 7 个公开榜单）是两个功能，名字别混。
+
 浏览器类源（微博 / B站 / 知乎 / 36氪）依赖本机 Chrome 与 opencli 扩展在链。
 取数时若发现桥没连上，夜诵会自动 `launchctl kickstart` 你在 `watches.json`
 顶层 `"bridge_window"` 配的窗口 label，等 30 秒再重试一次；没配就照常跳过。
@@ -89,9 +104,11 @@ Linux：引擎全兼容，定时用 cron 替 launchd（安装脚本会提示那�
 python3 sentinel.py --no-notify   # 只采集一轮，不弹窗
 python3 sentinel.py health        # 源健康表
 python3 sentinel.py digest        # 出当日日报
+python3 sentinel.py --radar       # 立即跑一次品类雷达（实拉，用于验证）
+python3 sentinel.py --version     # 看版本
 ```
 
-配置词条与 CLI 全表见 [CONFIG.md](CONFIG.md)，v1 到 v2 的逐项差异见
+配置词条与 CLI 全表见 [CONFIG.md](CONFIG.md)，版本变更见
 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 让 AI 自动读收件箱（钩子）
@@ -134,7 +151,7 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 
 ## 纪律
 
-- 只读、低频、只盯你列出的源；不绕过任何登录与付费；不批量采集
+- 只读、低频；采集只读你列出的源，品类雷达只读公开榜单；不绕过任何登录与付费；不批量采集
 - 请遵守各平台的服务条款；热榜数据来自平台官方接口，夜诵只搬运、不加工，
   真实性由源头保证
 
@@ -145,6 +162,10 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 - 网页源是普通访问：纯 JS 渲染的页面可能抓不全
 - 事件聚类是字符级算法：跨语言同事件（英译中标题）字面相似度为零，合并不了。
   这是方法边界，不是 bug；LLM 钩子接口预留着，默认不接
+- 品类雷达的 7 个源是 GitHub Search、GitHub Trending、GitHub Topics、Hacker News、
+  Product Hunt、Hugging Face、npm；PyPI、Reddit、Gitee 未接或不通，健康表会如实标。
+  词表 17 条写在 `radar_run.py` 顶部，改词表等于改雷达口径。`gh` 的搜索额度是每小时
+  5000 次，雷达一轮约用几十次。
 
 ## 收录
 
@@ -153,7 +174,7 @@ AI 读收件箱发生在正常对话里，不额外产生任何服务费用。
 
 ## License（双轨）
 
-- **内容与文档**（README、策展文字、清单）：**CC BY-NC-ND 4.0**。自己用、自己改（不发布不分享）完全自由；阅读与原样分享免费（署名即可）；修改后对外发布须先取得授权；商业使用（无论是否修改）须先联系商谈并取得授权，未获授权一律禁止。
-- **代码**（`sentinel.py`、`hooks/`、`install.sh`）：**MIT**。
+- **内容与文档**（README、策展文字、清单）：**CC BY-NC-ND 4.0**（[法律全文](https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.zh-Hans)）。自己用、自己改（不发布不分享）完全自由；阅读与原样分享免费（署名即可）；修改后对外发布须先取得授权；商业使用（无论是否修改）须先联系商谈并取得授权，未获授权一律禁止。
+- **代码**（`sentinel.py`、`v2.py`、`radar_run.py`、`hooks/`、`install.sh`）：**MIT**。
 
 五档口径与商用通道见 [LICENSE](LICENSE)。授权洽谈：本仓库提 issue，标题注明【商用授权】或【改编授权】。

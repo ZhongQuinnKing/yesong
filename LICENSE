@@ -2,10 +2,11 @@
 
 本仓库分两层授权，按用途对应：
 
-一、代码层（sentinel.py、hooks/、install.sh 等脚本与工具）：MIT License，法律全文见下方。
+一、代码层（sentinel.py、v2.py、radar_run.py、hooks/、install.sh 等脚本与工具）：MIT License，法律全文见下方。
 
 二、内容层（文档、策展文字、清单与图文）：CC BY-NC-ND 4.0。
 允许非商业使用并署名；不允许未经授权的修改版对外发布。
+法律全文：https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode.zh-Hans
 
 五档口径（全项目统一）：
 1. 使用：个人使用、非营利教学使用免费。

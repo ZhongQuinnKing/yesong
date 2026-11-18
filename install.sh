@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 夜诵 · 一键安装（幂等，可重复跑；重复跑会保留你现有的 watches.json）
 # 装什么：
-#   1) 引擎      → ~/.claude/tools/sentinel/
-#   2) 定时托管  → launchd（macOS；开机自动跑，此后每 6 小时一轮）
+#   1) 引擎      → ~/.claude/tools/sentinel/（sentinel.py、v2.py、radar_run.py 三件）
+#   2) 定时托管  → launchd（macOS；开机自动跑，此后每 6 小时一轮、每天 21:00 品类雷达）
 #   3) 可选钩子  → 让 AI 每次开工自动读收件箱（会改 ~/.claude/settings.json，自动备份）
 set -euo pipefail
 
@@ -15,10 +15,10 @@ OS="$(uname -s)"
 echo "夜诵 · 安装"
 echo
 
-# 0. 依赖检查（有则用、没有自动跳过对应源，不拦安装）
+# 0. 依赖检查（缺 gh 时 GitHub 源跳过、品类雷达不可用；不拦安装）
 command -v python3 >/dev/null 2>&1 || { echo "✗ 未找到 python3，请先安装 python3"; exit 1; }
 PY="$(command -v python3)"
-command -v gh >/dev/null 2>&1 || echo "⚠ 未找到 gh：GitHub 类源将自动跳过（装法：brew install gh && gh auth login）"
+command -v gh >/dev/null 2>&1 || echo "⚠ 未找到 gh：GitHub 类源将自动跳过，品类雷达不可用（雷达硬依赖 gh；装法：brew install gh && gh auth login）"
 command -v opencli >/dev/null 2>&1 || echo "⚠ 未找到 opencli：热榜类源将自动跳过（装法见 https://github.com/jackwener/OpenCLI）"
 
 # 旗标：--no-launchd（跳过定时注册）、--no-hook（跳过钩子安装）
@@ -28,9 +28,11 @@ for a in "$@"; do
   [ "$a" = "--no-hook" ] && NO_HOOK=1
 done
 
-# 1. 安装引擎
+# 1. 安装引擎（模块三件套：入口、事件管线、品类雷达）
 mkdir -p "$DIR"
 cp "$HERE/sentinel.py" "$DIR/sentinel.py"
+cp "$HERE/v2.py" "$DIR/v2.py"
+cp "$HERE/radar_run.py" "$DIR/radar_run.py"
 if [ ! -f "$DIR/watches.json" ]; then
   cp "$HERE/watches.example.json" "$DIR/watches.json"
   echo "✓ 引擎已装；配置已生成：$DIR/watches.json（照示例改成你要盯的源）"
@@ -40,6 +42,7 @@ fi
 
 # 2. 定时托管
 if [ "$OS" = "Darwin" ] && [ "$NO_LAUNCHD" = "0" ]; then
+  mkdir -p "$HOME/Library/LaunchAgents"
   cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -54,12 +57,19 @@ if [ "$OS" = "Darwin" ] && [ "$NO_LAUNCHD" = "0" ]; then
     </array>
     <key>StartInterval</key>
     <integer>21600</integer>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>21</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin</string>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin:$HOME/.local/node/bin</string>
     </dict>
     <key>StandardOutPath</key>
     <string>$DIR/sentinel.log</string>
@@ -70,10 +80,11 @@ if [ "$OS" = "Darwin" ] && [ "$NO_LAUNCHD" = "0" ]; then
 EOF
   launchctl unload "$PLIST" 2>/dev/null || true
   launchctl load "$PLIST"
-  echo "✓ 哨兵已上岗：开机自动跑，此后每 6 小时一轮（关了终端也活着）"
+  echo "✓ 哨兵已上岗：开机自动跑，此后每 6 小时一轮、每天 21:00 一轮品类雷达（关了终端也活着）"
 elif [ "$OS" != "Darwin" ]; then
-  echo "★ 非 macOS：引擎已装好，定时请用 cron，加这一行即可："
+  echo "★ 非 macOS：引擎已装好，定时请用 cron，加这两行（21:00 与六小时档撞点时雷达按日幂等，不会重跑）："
   echo "   0 */6 * * * $PY $DIR/sentinel.py"
+  echo "   0 21 * * * $PY $DIR/sentinel.py --radar"
 else
   echo "（已跳过定时注册 --no-launchd）"
 fi
@@ -81,7 +92,10 @@ fi
 # 3. 首次运行（只建基线、不打扰——这是刻意的）
 echo
 echo "首次运行（只记录当前状态做基线，不会打扰你）…"
-"$PY" "$DIR/sentinel.py" || true
+if ! "$PY" "$DIR/sentinel.py"; then
+  echo "⚠ 首次运行没有跑完（网络或依赖未就绪）。引擎已装好，下一轮定时会自动再试。"
+fi
+"$PY" "$DIR/sentinel.py" --version
 
 # 4. 可选：SessionStart 钩子（让 AI 自动读收件箱）
 if [ "$NO_HOOK" = "0" ] && [ -d "$HOME/.claude" ]; then
@@ -116,5 +130,5 @@ NODEEOF
 fi
 
 echo
-echo "完成。配置：$DIR/watches.json ｜ 收件箱：$DIR/inbox.jsonl ｜ 日志：$DIR/sentinel.log"
+echo "完成。配置：$DIR/watches.json ｜ 收件箱：$DIR/inbox.jsonl ｜ 雷达：$DIR/radar/ ｜ 日志：$DIR/sentinel.log"
 echo "本安装过程没有打开任何网页。"
